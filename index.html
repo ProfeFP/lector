@@ -1,32 +1,146 @@
-<video id="video" width="300" autoplay></video>
-<div id="result"></div>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Control d'Accessos</title>
+  <script src="https://unpkg.com/jsqr"></script>
 
-<script src="https://unpkg.com/jsqr"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      text-align: center;
+    }
+
+    #video {
+      width: 100%;
+      height: 70vh;
+      object-fit: cover;
+      background: black;
+    }
+
+    #result {
+      padding: 15px;
+      font-size: 18px;
+    }
+
+    .ok {
+      background: #1e7e34;
+    }
+
+    .error {
+      background: #a71d2a;
+    }
+
+    .info {
+      text-align: left;
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    .big {
+      font-size: 22px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<video id="video" autoplay playsinline></video>
+
+<div id="result">Escanejant...</div>
 
 <script>
-navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-  .then(stream => {
-    const video = document.getElementById('video');
-    video.srcObject = stream;
+let scanning = true;
 
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
+navigator.mediaDevices.getUserMedia({
+  video: { facingMode: "environment" }
+})
+.then(stream => {
+  const video = document.getElementById('video');
+  video.srcObject = stream;
 
-    setInterval(() => {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
 
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, canvas.width, canvas.height);
+  setInterval(() => {
+    if (!scanning) return;
 
-      if (code) {
-        document.getElementById("result").innerText = code.data;
-      }
-    }, 500);
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, canvas.width, canvas.height);
+
+    if (code) {
+      scanning = false;
+      processQR(code.data);
+    }
+  }, 400);
+})
+.catch(err => {
+  document.getElementById("result").innerText = "Error càmera: " + err;
+});
+
+function processQR(qr) {
+  document.getElementById("result").innerText = "Validant...";
+
+  fetch("https://script.google.com/macros/s/XXXX/exec", {
+    method: "POST",
+    body: JSON.stringify({ qr: qr })
   })
+  .then(res => res.json())
+  .then(data => showResult(data))
   .catch(err => {
-    document.getElementById("result").innerText =
-      "Error càmera: " + err;
+    showError("Error de connexió");
   });
+}
+
+function showResult(data) {
+  const div = document.getElementById("result");
+
+  if (data.estat === "correcte") {
+    div.className = "ok";
+  } else {
+    div.className = "error";
+  }
+
+  div.innerHTML = `
+    <div class="big">${data.missatge}</div>
+    <div class="info">
+      <b>${data.nom}</b><br>
+      ${data.edifici}<br>
+      ${data.dia} - ${data.hora_inici}<br>
+      Persones: ${data.persones}<br>
+      Tiquet: ${data.tiquet}<br>
+      Hora: ${data.hora_validacio}
+    </div>
+  `;
+
+  // Tornar a escanejar després de 3 segons
+  setTimeout(() => {
+    div.className = "";
+    div.innerHTML = "Escanejant...";
+    scanning = true;
+  }, 3000);
+}
+
+function showError(msg) {
+  const div = document.getElementById("result");
+  div.className = "error";
+  div.innerHTML = `<div class="big">${msg}</div>`;
+
+  setTimeout(() => {
+    div.className = "";
+    div.innerHTML = "Escanejant...";
+    scanning = true;
+  }, 3000);
+}
 </script>
+
+</body>
+</html>
