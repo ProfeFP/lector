@@ -1,187 +1,261 @@
 <!DOCTYPE html>
-<html>
+<html lang="ca">
 <head>
-<meta charset="UTF-8">
-<title>Control d'Accessos</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Control d'Accessos Premium</title>
+  <script src="https://unpkg.com/jsqr"></script>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --ok-color: #2ecc71;
+      --error-color: #e74c3c;
+      --warning-color: #f1c40f;
+    }
 
-<script src="https://unpkg.com/jsqr"></script>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-color);
+      color: white;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
 
-<style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #111;
-  color: white;
-}
+    /* 📷 Càmera ocupa exactament el 50% de l'alçada */
+    #video-container {
+      position: relative;
+      width: 100%;
+      height: 50vh;
+      background: #000;
+      overflow: hidden;
+    }
 
-/* 📷 càmera més petita */
-#video {
-  width: 100%;
-  height: 45vh;
-  object-fit: cover;
-  background: black;
-}
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
-/* 🎛️ botons grans */
-#controls {
-  text-align: center;
-  padding: 10px;
-}
+    /* Línia d'escaneig animada */
+    .scanner-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: rgba(0, 255, 0, 0.5);
+      box-shadow: 0 0 10px 2px rgba(0, 255, 0, 0.8);
+      animation: scan 2s infinite linear;
+    }
 
-button {
-  font-size: 20px;
-  padding: 15px 25px;
-  margin: 5px;
-  border: none;
-  border-radius: 10px;
-  width: 40%;
-}
+    @keyframes scan {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
 
-.start { background: #28a745; color: white; }
-.stop { background: #dc3545; color: white; }
+    /* 🎛️ Àrea de Resultats (l'altre 50%) */
+    #result-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      text-align: center;
+      transition: background 0.3s ease;
+      overflow-y: auto;
+    }
 
-/* 📢 RESULTAT GRAN */
-#result {
-  width: 100%;
-  min-height: 40vh;
-  padding: 25px;
-  box-sizing: border-box;
-}
+    .status-msg {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
 
-/* colors forts */
-.ok {
-  background: #28a745;
-}
+    .data-card {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      padding: 15px;
+      font-size: 18px;
+      line-height: 1.5;
+      text-align: left;
+    }
 
-.error {
-  background: #dc3545;
-}
+    .data-item {
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: space-between;
+    }
 
-/* text molt gran */
-.big {
-  font-size: 34px;
-  font-weight: bold;
-  margin-bottom: 15px;
-}
+    .data-label { color: #bbb; font-size: 14px; }
 
-.info {
-  font-size: 22px;
-  line-height: 1.6;
-}
-</style>
+    /* 🚨 Estats Visuals */
+    .state-waiting { background: #1a1a1a; }
+    .state-ok { background: var(--ok-color); color: white; }
+    .state-error { background: var(--error-color); color: white; }
+    .state-warning { background: var(--warning-color); color: #000; }
+
+    /* Botons */
+    .btn-next {
+      background: white;
+      color: black;
+      border: none;
+      padding: 18px;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 50px;
+      margin-top: auto;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+
+    #loading-overlay {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+  </style>
 </head>
+<body class="state-waiting">
 
-<body>
+  <div id="video-container">
+    <video id="video" autoplay playsinline></video>
+    <div class="scanner-line"></div>
+    <div id="loading-overlay">⏳ Validant...</div>
+  </div>
 
-<video id="video" autoplay playsinline></video>
+  <div id="result-container" id="result-box">
+    <div id="status-text" class="status-msg">LLEGEIX UN CODI</div>
+    
+    <div id="info-panel" style="display: none;">
+      <div class="data-card">
+        <div class="data-item"><span class="data-label">Nom:</span> <b id="res-nom">-</b></div>
+        <div class="data-item"><span class="data-label">Edifici:</span> <span id="res-edifici">-</span></div>
+        <div class="data-item"><span class="data-label">Sessió:</span> <span id="res-sessio">-</span></div>
+        <div class="data-item"><span class="data-label">Persones:</span> <b id="res-persones">-</b></div>
+        <div class="data-item"><span class="data-label">Tiquet:</span> <span id="res-tiquet">-</span></div>
+      </div>
+      <button class="btn-next" onclick="resetScanner()">SEGÜENT PERSONA</button>
+    </div>
 
-<div id="controls">
-  <button class="stop" onclick="stopScan()">⏸️ Pausar</button>
-  <button class="start" onclick="startScan()">▶️ Escanejar</button>
-</div>
-
-<div id="result">📷 Escanejant...</div>
+    <div id="idle-msg">
+      Apunteu la càmera al codi QR de l'entrada per validar l'accés.
+    </div>
+  </div>
 
 <script>
-let scanning = true;
-let video = document.getElementById('video');
+  let scanning = true;
+  const video = document.getElementById('video');
+  const body = document.body;
+  const loading = document.getElementById('loading-overlay');
 
-// 📷 CÀMERA
-navigator.mediaDevices.getUserMedia({
-  video: { facingMode: "environment" }
-})
-.then(stream => {
-  video.srcObject = stream;
+  // Iniciar Càmera
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    .then(stream => {
+      video.srcObject = stream;
+      requestAnimationFrame(tick);
+    });
 
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
+  function tick() {
+    if (scanning && video.readyState === video.HAVE_ENOUGH_DATA) {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, canvas.width, canvas.height);
 
-  setInterval(() => {
-    if (!scanning) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, canvas.width, canvas.height);
-
-    if (code) {
-      scanning = false; // 🔥 PARA SEMPRE fins botó
-      processQR(code.data);
+      if (code) {
+        scanning = false;
+        processQR(code.data);
+      }
     }
-  }, 400);
-})
-.catch(err => {
-  document.getElementById("result").innerText = "Error càmera: " + err;
-});
+    requestAnimationFrame(tick);
+  }
 
-// ▶️ REPRENDRE
-function startScan() {
-  scanning = true;
+  function processQR(urlData) {
+    loading.style.display = 'flex';
+    
+    // Extreure els paràmetres de la URL del QR
+    try {
+      const urlParams = new URLSearchParams(urlData.split('?')[1]);
+      const id_reserva = urlParams.get('id_reserva');
+      const ticket = urlParams.get('ticket') || 1;
 
-  const div = document.getElementById("result");
-  div.className = "";
-  div.innerHTML = "📷 Escanejant...";
-}
+      if(!id_reserva) throw new Error("QR no vàlid");
 
-// ⏸️ PARAR
-function stopScan() {
-  scanning = false;
-}
+      const scriptUrl = "https://script.google.com/macros/s/AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw/exec"
+        + "?accio=entrades"
+        + "&id_reserva=" + encodeURIComponent(id_reserva)
+        + "&ticket=" + encodeURIComponent(ticket)
+        + "&callback=handleResponse";
 
-// 🔗 ENVIO A GAS
-function processQR(qr) {
-  const div = document.getElementById("result");
-  div.innerHTML = "⏳ Validant...";
+      const script = document.createElement("script");
+      script.src = scriptUrl;
+      // Maneig d'errors de xarxa
+      script.onerror = () => handleError("Error de connexió amb el servidor");
+      document.body.appendChild(script);
+      
+    } catch (e) {
+      handleError("Codi QR no reconegut");
+    }
+  }
 
-  const parts = qr.split("|");
-  const id_reserva = parts[0];
-  const ticket = parts[1] || 1;
+  window.handleResponse = function(data) {
+    loading.style.display = 'none';
+    const infoPanel = document.getElementById('info-panel');
+    const idleMsg = document.getElementById('idle-msg');
+    const statusText = document.getElementById('status-text');
 
-  const url = "https://script.google.com/macros/s/AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw/exec"
-    + "?accio=entrades"
-    + "&id_reserva=" + encodeURIComponent(id_reserva)
-    + "&ticket=" + encodeURIComponent(ticket)
-    + "&callback=handleResponse";
+    idleMsg.style.display = 'none';
+    infoPanel.style.display = 'block';
 
-  const script = document.createElement("script");
-  script.src = url;
-  document.body.appendChild(script);
-}
+    // Lògica de colors i missatges
+    if (data.estat === "correcte") {
+      body.className = "state-ok";
+      statusText.innerText = "✅ ACCÉS PERMÈS";
+      navigator.vibrate(200);
+    } else if (data.estat === "ja_validat") {
+      body.className = "state-warning";
+      statusText.innerText = "⚠️ JA VALIDAT";
+      navigator.vibrate([100, 50, 100]);
+    } else {
+      body.className = "state-error";
+      statusText.innerText = "❌ ERROR: " + (data.missatge || "No trobat");
+      navigator.vibrate([500]);
+    }
 
-// 📥 RESPOSTA
-function handleResponse(data) {
-  const div = document.getElementById("result");
+    // Omplir dades
+    document.getElementById('res-nom').innerText = data.nom || '---';
+    document.getElementById('res-edifici').innerText = data.edifici || '---';
+    document.getElementById('res-sessio').innerText = (data.dia || '') + " " + (data.hora_inici || '');
+    document.getElementById('res-persones').innerText = data.persones || '1';
+    document.getElementById('res-tiquet').innerText = data.tiquet || '1';
+  };
 
-  // segons l'estat pintem fons
-  let estatClass = "";
-  if (data.estat === "correcte") estatClass = "ok";
-  else if (data.estat === "ja_validat") estatClass = "error"; // vermell per ja validat
-  else estatClass = "error"; // qualsevol altre error
+  function handleError(msg) {
+    loading.style.display = 'none';
+    body.className = "state-error";
+    document.getElementById('status-text').innerText = msg;
+    document.getElementById('info-panel').style.display = 'block';
+  }
 
-  div.className = estatClass;
-
-  // vibració curta segons l'estat
-  if (data.estat === "correcte") navigator.vibrate(200);
-  else navigator.vibrate([100, 50, 100]);
-
-  // Mostrar resultat gran i llegible
-  div.innerHTML = `
-    <div class="big">${data.missatge}</div>
-    <div class="info">
-      👤 <b>${data.nom}</b><br>
-      🏛️ ${data.edifici}<br>
-      📅 ${data.dia} - ${data.hora_inici}<br>
-      👥 ${data.persones} persones<br>
-      🎟️ Ticket ${data.tiquet}<br>
-      ⏱️ ${data.hora_validacio}
-    </div>
-    <br>
-    <button class="start" onclick="startScan()">👉 Següent persona</button>
-  `;
-}
+  function resetScanner() {
+    scanning = true;
+    body.className = "state-waiting";
+    document.getElementById('status-text').innerText = "LLEGEIX UN CODI";
+    document.getElementById('info-panel').style.display = 'none';
+    document.getElementById('idle-msg').style.display = 'block';
+  }
 </script>
-
 </body>
 </html>
