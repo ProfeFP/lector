@@ -154,14 +154,19 @@ function processQR(qr) {
 function handleResponse(data) {
   const div = document.getElementById("result");
 
-  if (data.estat === "correcte") {
-    div.className = "ok";
-    navigator.vibrate(200);
-  } else {
-    div.className = "error";
-    navigator.vibrate([100, 50, 100]);
-  }
+  // segons l'estat pintem fons
+  let estatClass = "";
+  if (data.estat === "correcte") estatClass = "ok";
+  else if (data.estat === "ja_validat") estatClass = "error"; // vermell per ja validat
+  else estatClass = "error"; // qualsevol altre error
 
+  div.className = estatClass;
+
+  // vibració curta segons l'estat
+  if (data.estat === "correcte") navigator.vibrate(200);
+  else navigator.vibrate([100, 50, 100]);
+
+  // Mostrar resultat gran i llegible
   div.innerHTML = `
     <div class="big">${data.missatge}</div>
     <div class="info">
