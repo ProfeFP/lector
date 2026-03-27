@@ -3,124 +3,104 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Control d'Accessos Premium</title>
+  <title>Control d'Accessos</title>
   <script src="https://unpkg.com/jsqr"></script>
   <style>
     :root {
       --bg-color: #121212;
-      --ok-color: #2ecc71;
-      --error-color: #e74c3c;
-      --warning-color: #f1c40f;
+      --ok-color: #27ae60;
+      --error-color: #c0392b;
+      --warning-color: #f39c12;
     }
 
     body {
       margin: 0;
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg-color);
       color: white;
-      overflow: hidden;
+      height: 100vh;
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      overflow: hidden;
     }
 
-    /* 📷 Càmera ocupa exactament el 50% de l'alçada */
+    /* 📷 Càmera al 50% */
     #video-container {
       position: relative;
       width: 100%;
-      height: 50vh;
+      height: 45vh; /* Una mica menys per deixar espai */
       background: #000;
-      overflow: hidden;
     }
 
-    #video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+    #video { width: 100%; height: 100%; object-fit: cover; }
 
-    /* Línia d'escaneig animada */
     .scanner-line {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 2px;
-      background: rgba(0, 255, 0, 0.5);
-      box-shadow: 0 0 10px 2px rgba(0, 255, 0, 0.8);
+      top: 0; left: 0; width: 100%; height: 2px;
+      background: rgba(0, 255, 0, 0.6);
+      box-shadow: 0 0 8px 2px rgba(0, 255, 0, 0.8);
       animation: scan 2s infinite linear;
     }
+    @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
 
-    @keyframes scan {
-      0% { top: 0; }
-      100% { top: 100%; }
-    }
-
-    /* 🎛️ Àrea de Resultats (l'altre 50%) */
+    /* 🎛️ Zona de resultats */
     #result-container {
       flex: 1;
+      padding: 10px;
       display: flex;
       flex-direction: column;
-      padding: 20px;
-      text-align: center;
-      transition: background 0.3s ease;
-      overflow-y: auto;
+      overflow-y: auto; /* Permet scroll si no cap */
+      transition: background 0.3s;
     }
 
     .status-msg {
-      font-size: 28px;
-      font-weight: 800;
-      margin-bottom: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 8px;
       text-transform: uppercase;
-      letter-spacing: 1px;
     }
 
     .data-card {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 15px;
-      padding: 15px;
-      font-size: 18px;
-      line-height: 1.5;
-      text-align: left;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 15px;
     }
 
-    .data-item {
-      margin-bottom: 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+    .data-row {
       display: flex;
       justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 4px 0;
     }
 
-    .data-label { color: #bbb; font-size: 14px; }
+    .data-label { color: #ccc; font-size: 12px; }
 
-    /* 🚨 Estats Visuals */
-    .state-waiting { background: #1a1a1a; }
-    .state-ok { background: var(--ok-color); color: white; }
-    .state-error { background: var(--error-color); color: white; }
-    .state-warning { background: var(--warning-color); color: #000; }
-
-    /* Botons */
+    /* Botó visible i gran */
     .btn-next {
-      background: white;
-      color: black;
+      background: #fff;
+      color: #000;
       border: none;
-      padding: 18px;
-      font-size: 20px;
+      padding: 12px;
+      font-size: 16px;
       font-weight: bold;
-      border-radius: 50px;
-      margin-top: auto;
+      border-radius: 8px;
+      margin-top: 10px;
+      width: 100%;
       cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
 
-    #loading-overlay {
+    .state-waiting { background: #1a1a1a; }
+    .state-ok { background: var(--ok-color); }
+    .state-error { background: var(--error-color); }
+    .state-warning { background: var(--warning-color); }
+
+    #loading {
       display: none;
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.7);
-      align-items: center;
-      justify-content: center;
-      z-index: 10;
+      text-align: center;
+      padding: 20px;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -129,132 +109,103 @@
   <div id="video-container">
     <video id="video" autoplay playsinline></video>
     <div class="scanner-line"></div>
-    <div id="loading-overlay">⏳ Validant...</div>
   </div>
 
-  <div id="result-container" id="result-box">
-    <div id="status-text" class="status-msg">LLEGEIX UN CODI</div>
+  <div id="result-container">
+    <div id="loading">⏳ VALIDANT...</div>
+    
+    <div id="status-text" class="status-msg">ESCANEJA UN CODI</div>
     
     <div id="info-panel" style="display: none;">
       <div class="data-card">
-        <div class="data-item"><span class="data-label">Nom:</span> <b id="res-nom">-</b></div>
-        <div class="data-item"><span class="data-label">Edifici:</span> <span id="res-edifici">-</span></div>
-        <div class="data-item"><span class="data-label">Sessió:</span> <span id="res-sessio">-</span></div>
-        <div class="data-item"><span class="data-label">Persones:</span> <b id="res-persones">-</b></div>
-        <div class="data-item"><span class="data-label">Tiquet:</span> <span id="res-tiquet">-</span></div>
+        <div class="data-row"><span class="data-label">Nom:</span> <b id="res-nom">-</b></div>
+        <div class="data-row"><span class="data-label">Edifici:</span> <span id="res-edifici">-</span></div>
+        <div class="data-row"><span class="data-label">Sessió:</span> <span id="res-sessio">-</span></div>
+        <div class="data-row"><span class="data-label">Persones:</span> <b id="res-persones">-</b></div>
+        <div class="data-row"><span class="data-label">Tiquet:</span> <span id="res-tiquet">-</span></div>
       </div>
       <button class="btn-next" onclick="resetScanner()">SEGÜENT PERSONA</button>
-    </div>
-
-    <div id="idle-msg">
-      Apunteu la càmera al codi QR de l'entrada per validar l'accés.
     </div>
   </div>
 
 <script>
   let scanning = true;
   const video = document.getElementById('video');
-  const body = document.body;
-  const loading = document.getElementById('loading-overlay');
 
-  // Iniciar Càmera
   navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-    .then(stream => {
-      video.srcObject = stream;
-      requestAnimationFrame(tick);
-    });
+    .then(stream => { video.srcObject = stream; requestAnimationFrame(tick); });
 
   function tick() {
     if (scanning && video.readyState === video.HAVE_ENOUGH_DATA) {
       const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, canvas.width, canvas.height);
-
-      if (code) {
-        scanning = false;
-        processQR(code.data);
-      }
+      const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+      if (code) { scanning = false; processQR(code.data); }
     }
     requestAnimationFrame(tick);
   }
 
-  function processQR(urlData) {
-    loading.style.display = 'flex';
+  function processQR(qrUrl) {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('status-text').style.display = 'none';
     
-    // Extreure els paràmetres de la URL del QR
     try {
-      const urlParams = new URLSearchParams(urlData.split('?')[1]);
-      const id_reserva = urlParams.get('id_reserva');
-      const ticket = urlParams.get('ticket') || 1;
+      // Netegem la URL per si ve amb espais o caràcters estranys
+      const cleanUrl = qrUrl.trim();
+      const urlObj = new URL(cleanUrl);
+      const id_reserva = urlObj.searchParams.get("id_reserva");
+      const ticket = urlObj.searchParams.get("ticket") || "1";
 
-      if(!id_reserva) throw new Error("QR no vàlid");
-
-      const scriptUrl = "https://script.google.com/macros/s/AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw/exec"
-        + "?accio=entrades"
-        + "&id_reserva=" + encodeURIComponent(id_reserva)
-        + "&ticket=" + encodeURIComponent(ticket)
-        + "&callback=handleResponse";
+      const scriptBase = "https://script.google.com/macros/s/AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw/exec";
+      const finalUrl = `${scriptBase}?callback=handleResponse&accio=entrades&id_reserva=${id_reserva}&ticket=${ticket}`;
 
       const script = document.createElement("script");
-      script.src = scriptUrl;
-      // Maneig d'errors de xarxa
-      script.onerror = () => handleError("Error de connexió amb el servidor");
+      script.src = finalUrl;
+      script.onerror = () => showError("ERROR DE CONNEXIÓ");
       document.body.appendChild(script);
-      
     } catch (e) {
-      handleError("Codi QR no reconegut");
+      showError("QR NO VÀLID");
     }
   }
 
   window.handleResponse = function(data) {
-    loading.style.display = 'none';
-    const infoPanel = document.getElementById('info-panel');
-    const idleMsg = document.getElementById('idle-msg');
-    const statusText = document.getElementById('status-text');
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('status-text').style.display = 'block';
+    document.getElementById('info-panel').style.display = 'block';
 
-    idleMsg.style.display = 'none';
-    infoPanel.style.display = 'block';
-
-    // Lògica de colors i missatges
     if (data.estat === "correcte") {
-      body.className = "state-ok";
-      statusText.innerText = "✅ ACCÉS PERMÈS";
-      navigator.vibrate(200);
+      document.body.className = "state-ok";
+      document.getElementById('status-text').innerText = "✅ ACCÉS OK";
     } else if (data.estat === "ja_validat") {
-      body.className = "state-warning";
-      statusText.innerText = "⚠️ JA VALIDAT";
-      navigator.vibrate([100, 50, 100]);
+      document.body.className = "state-warning";
+      document.getElementById('status-text').innerText = "⚠️ JA VALIDAT";
     } else {
-      body.className = "state-error";
-      statusText.innerText = "❌ ERROR: " + (data.missatge || "No trobat");
-      navigator.vibrate([500]);
+      document.body.className = "state-error";
+      document.getElementById('status-text').innerText = "❌ ERROR";
     }
 
-    // Omplir dades
     document.getElementById('res-nom').innerText = data.nom || '---';
     document.getElementById('res-edifici').innerText = data.edifici || '---';
     document.getElementById('res-sessio').innerText = (data.dia || '') + " " + (data.hora_inici || '');
-    document.getElementById('res-persones').innerText = data.persones || '1';
-    document.getElementById('res-tiquet').innerText = data.tiquet || '1';
+    document.getElementById('res-persones').innerText = data.persones || '-';
+    document.getElementById('res-tiquet').innerText = data.tiquet || '-';
   };
 
-  function handleError(msg) {
-    loading.style.display = 'none';
-    body.className = "state-error";
+  function showError(msg) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('status-text').style.display = 'block';
+    document.body.className = "state-error";
     document.getElementById('status-text').innerText = msg;
     document.getElementById('info-panel').style.display = 'block';
   }
 
   function resetScanner() {
     scanning = true;
-    body.className = "state-waiting";
-    document.getElementById('status-text').innerText = "LLEGEIX UN CODI";
+    document.body.className = "state-waiting";
+    document.getElementById('status-text').innerText = "ESCANEJA UN CODI";
     document.getElementById('info-panel').style.display = 'none';
-    document.getElementById('idle-msg').style.display = 'block';
   }
 </script>
 </body>
