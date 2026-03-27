@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Control d'Accessos</title>
+
   <script src="https://unpkg.com/jsqr"></script>
 
   <style>
@@ -56,6 +57,7 @@
 <script>
 let scanning = true;
 
+// 📷 Activar càmera
 navigator.mediaDevices.getUserMedia({
   video: { facingMode: "environment" }
 })
@@ -86,27 +88,28 @@ navigator.mediaDevices.getUserMedia({
   document.getElementById("result").innerText = "Error càmera: " + err;
 });
 
+// 🚀 Enviar QR a GAS (JSONP → sense CORS)
 function processQR(qr) {
   document.getElementById("result").innerText = "Validant...";
 
-  fetch("https://script.google.com/macros/s/XXXX/exec", {
-    method: "POST",
-    body: JSON.stringify({ qr: qr })
-  })
-  .then(res => res.json())
-  .then(data => showResult(data))
-  .catch(err => {
-    showError("Error de connexió");
-  });
+  const script = document.createElement("script");
+  script.src = "https://script.google.com/macros/s/XXXX/exec"
+    + "?qr=" + encodeURIComponent(qr)
+    + "&callback=handleResponse";
+
+  document.body.appendChild(script);
 }
 
-function showResult(data) {
+// 📥 Resposta de GAS
+function handleResponse(data) {
   const div = document.getElementById("result");
 
   if (data.estat === "correcte") {
     div.className = "ok";
+    navigator.vibrate(200);
   } else {
     div.className = "error";
+    navigator.vibrate([100, 50, 100]);
   }
 
   div.innerHTML = `
@@ -121,19 +124,7 @@ function showResult(data) {
     </div>
   `;
 
-  // Tornar a escanejar després de 3 segons
-  setTimeout(() => {
-    div.className = "";
-    div.innerHTML = "Escanejant...";
-    scanning = true;
-  }, 3000);
-}
-
-function showError(msg) {
-  const div = document.getElementById("result");
-  div.className = "error";
-  div.innerHTML = `<div class="big">${msg}</div>`;
-
+  // 🔄 Tornar a escanejar
   setTimeout(() => {
     div.className = "";
     div.innerHTML = "Escanejant...";
