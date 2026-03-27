@@ -12,52 +12,61 @@ body {
   font-family: Arial, sans-serif;
   background: #111;
   color: white;
-  text-align: center;
 }
 
+/* 📷 càmera més petita */
 #video {
   width: 100%;
-  height: 50vh;
+  height: 45vh;
   object-fit: cover;
   background: black;
 }
 
+/* 🎛️ botons grans */
 #controls {
-  margin: 10px;
+  text-align: center;
+  padding: 10px;
 }
 
 button {
-  font-size: 18px;
-  padding: 12px 20px;
+  font-size: 20px;
+  padding: 15px 25px;
   margin: 5px;
   border: none;
-  border-radius: 8px;
-  cursor: pointer;
+  border-radius: 10px;
+  width: 40%;
 }
 
 .start { background: #28a745; color: white; }
 .stop { background: #dc3545; color: white; }
 
+/* 📢 RESULTAT GRAN */
 #result {
-  margin: 10px;
-  padding: 20px;
-  font-size: 20px;
-  border-radius: 10px;
-  min-height: 120px;
+  width: 100%;
+  min-height: 40vh;
+  padding: 25px;
+  box-sizing: border-box;
 }
 
-.ok { background: #28a745; }
-.error { background: #dc3545; }
+/* colors forts */
+.ok {
+  background: #28a745;
+}
 
+.error {
+  background: #dc3545;
+}
+
+/* text molt gran */
 .big {
-  font-size: 30px;
+  font-size: 34px;
   font-weight: bold;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 }
 
 .info {
-  font-size: 18px;
-  line-height: 1.5;
+  font-size: 22px;
+  line-height: 1.6;
 }
 </style>
 </head>
@@ -71,13 +80,13 @@ button {
   <button class="start" onclick="startScan()">▶️ Escanejar</button>
 </div>
 
-<div id="result">Escanejant...</div>
+<div id="result">📷 Escanejant...</div>
 
 <script>
 let scanning = true;
 let video = document.getElementById('video');
 
-// 📷 Activar càmera
+// 📷 CÀMERA
 navigator.mediaDevices.getUserMedia({
   video: { facingMode: "environment" }
 })
@@ -98,7 +107,7 @@ navigator.mediaDevices.getUserMedia({
     const code = jsQR(imageData.data, canvas.width, canvas.height);
 
     if (code) {
-      scanning = false;
+      scanning = false; // 🔥 PARA SEMPRE fins botó
       processQR(code.data);
     }
   }, 400);
@@ -107,24 +116,25 @@ navigator.mediaDevices.getUserMedia({
   document.getElementById("result").innerText = "Error càmera: " + err;
 });
 
-// ▶️ Reprendre escaneig
+// ▶️ REPRENDRE
 function startScan() {
   scanning = true;
+
   const div = document.getElementById("result");
   div.className = "";
-  div.innerText = "Escanejant...";
+  div.innerHTML = "📷 Escanejant...";
 }
 
-// ⏸️ Pausar
+// ⏸️ PARAR
 function stopScan() {
   scanning = false;
 }
 
-// 🔗 Enviar QR → GAS (JSONP)
+// 🔗 ENVIO A GAS
 function processQR(qr) {
-  document.getElementById("result").innerText = "Validant...";
+  const div = document.getElementById("result");
+  div.innerHTML = "⏳ Validant...";
 
-  // Format QR: RS021FB3S|1
   const parts = qr.split("|");
   const id_reserva = parts[0];
   const ticket = parts[1] || 1;
@@ -135,14 +145,12 @@ function processQR(qr) {
     + "&ticket=" + encodeURIComponent(ticket)
     + "&callback=handleResponse";
 
-  console.log("Cridant:", url);
-
   const script = document.createElement("script");
   script.src = url;
   document.body.appendChild(script);
 }
 
-// 📥 Resposta del GAS
+// 📥 RESPOSTA
 function handleResponse(data) {
   const div = document.getElementById("result");
 
@@ -164,6 +172,8 @@ function handleResponse(data) {
       🎟️ Ticket ${data.tiquet}<br>
       ⏱️ ${data.hora_validacio}
     </div>
+    <br>
+    <button class="start" onclick="startScan()">👉 Següent persona</button>
   `;
 }
 </script>
