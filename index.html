@@ -92,10 +92,24 @@ navigator.mediaDevices.getUserMedia({
 function processQR(qr) {
   document.getElementById("result").innerText = "Validant...";
 
+  // Exemple QR: RS021FB3S|1
+  const parts = qr.split("|");
+
+  const id_reserva = parts[0];
+  const ticket = parts[1] || 1;
+
+  const callbackName = "handleResponse";
+
+  const url = "https://script.google.com/macros/s/AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw/exec"
+    + "?accio=entrades"
+    + "&id_reserva=" + encodeURIComponent(id_reserva)
+    + "&ticket=" + encodeURIComponent(ticket)
+    + "&callback=" + callbackName;
+
+  console.log("URL:", url);
+
   const script = document.createElement("script");
-  script.src = "https://script.google.com/macros/s/XXXX/exec"
-    + "?qr=" + encodeURIComponent(qr)
-    + "&callback=handleResponse";
+  script.src = url;
 
   document.body.appendChild(script);
 }
