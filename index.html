@@ -1,661 +1,172 @@
 <!DOCTYPE html>
-<html lang="ca">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Control d'Accessos · Espais Ocults</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/jsqr"></script>
-  <style>
-    :root {
-      --bg:        #0A0F0D;
-      --surface:   #111A16;
-      --surface2:  #182019;
-      --green:     #00E87A;
-      --green-dim: #00804A;
-      --red:       #FF3B5C;
-      --red-dim:   #8C1A2E;
-      --amber:     #FFB020;
-      --text:      #E8F0EC;
-      --muted:     #5A7A68;
-      --border:    rgba(255,255,255,.07);
-      --font:      'DM Sans', sans-serif;
-      --mono:      'DM Mono', monospace;
-    }
+<meta charset="UTF-8">
+<title>Control d'Accessos</title>
 
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+<script src="https://unpkg.com/jsqr"></script>
 
-    html, body {
-      height: 100%;
-      overflow: hidden;
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--text);
-    }
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #111;
+  color: white;
+  text-align: center;
+}
 
-    /* ── Layout ────────────────────────────────────────────── */
-    #app {
-      display: flex;
-      flex-direction: column;
-      height: 100dvh;
-    }
+#video {
+  width: 100%;
+  height: 50vh;
+  object-fit: cover;
+  background: black;
+}
 
-    /* ── Header ─────────────────────────────────────────────── */
-    #header {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 20px 10px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      z-index: 10;
-    }
+#controls {
+  margin: 10px;
+}
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+button {
+  font-size: 18px;
+  padding: 12px 20px;
+  margin: 5px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
 
-    .logo-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green);
-      animation: pulse-dot 2s ease-in-out infinite;
-    }
+.start { background: #28a745; color: white; }
+.stop { background: #dc3545; color: white; }
 
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--green); }
-      50%       { opacity: .5; box-shadow: 0 0 4px var(--green); }
-    }
+#result {
+  margin: 10px;
+  padding: 20px;
+  font-size: 20px;
+  border-radius: 10px;
+  min-height: 120px;
+}
 
-    .logo-text {
-      font-size: .78rem;
-      font-weight: 700;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--text);
-    }
+.ok { background: #28a745; }
+.error { background: #dc3545; }
 
-    .logo-sub {
-      font-size: .65rem;
-      color: var(--muted);
-      letter-spacing: .06em;
-    }
+.big {
+  font-size: 30px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
 
-    #scan-count {
-      font-family: var(--mono);
-      font-size: .72rem;
-      color: var(--muted);
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 4px 12px;
-    }
-
-    /* ── Visor càmera ────────────────────────────────────────── */
-    #camera-wrap {
-      position: relative;
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-      background: #000;
-    }
-
-    #video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    /* Overlay fosc amb finestra de scan */
-    #overlay {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
-
-    .overlay-mask {
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,.55);
-      /* Forat central via clip-path no és possible sense SVG, fem amb 4 bandes */
-    }
-
-    /* Les 4 bandes de l'overlay */
-    .mask-top, .mask-bot, .mask-left, .mask-right {
-      position: absolute;
-      background: rgba(0,0,0,.6);
-    }
-
-    /* Finestra de scan: quadrat centrat 220×220 */
-    .mask-top    { top:0; left:0; right:0; height: calc(50% - 110px); }
-    .mask-bot    { bottom:0; left:0; right:0; height: calc(50% - 110px); }
-    .mask-left   { top: calc(50% - 110px); bottom: calc(50% - 110px); left:0; width: calc(50% - 110px); }
-    .mask-right  { top: calc(50% - 110px); bottom: calc(50% - 110px); right:0; width: calc(50% - 110px); }
-
-    /* Marc de la finestra */
-    .scan-frame {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 220px;
-      height: 220px;
-    }
-
-    .scan-frame::before, .scan-frame::after,
-    .scan-frame .c3, .scan-frame .c4 {
-      content: '';
-      position: absolute;
-      width: 28px;
-      height: 28px;
-      border-color: var(--green);
-      border-style: solid;
-    }
-
-    .scan-frame::before { top:0; left:0;  border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
-    .scan-frame::after  { top:0; right:0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
-    .scan-frame .c3     { bottom:0; left:0;  border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
-    .scan-frame .c4     { bottom:0; right:0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
-
-    /* Línia de scan animada */
-    .scan-line {
-      position: absolute;
-      left: 10px;
-      right: 10px;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--green), transparent);
-      top: 10px;
-      animation: scan-sweep 2s ease-in-out infinite;
-      box-shadow: 0 0 8px var(--green);
-    }
-
-    @keyframes scan-sweep {
-      0%   { top: 10px;  opacity: 1; }
-      90%  { top: 200px; opacity: 1; }
-      100% { top: 200px; opacity: 0; }
-    }
-
-    .scan-label {
-      position: absolute;
-      bottom: -30px;
-      left: 50%;
-      transform: translateX(-50%);
-      white-space: nowrap;
-      font-size: .72rem;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,.5);
-    }
-
-    /* Punt de focus al centre (quan detecta) */
-    .focus-ring {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 60px;
-      height: 60px;
-      transform: translate(-50%, -50%) scale(0);
-      border: 2px solid var(--green);
-      border-radius: 50%;
-      opacity: 0;
-      transition: transform .2s, opacity .2s;
-    }
-
-    .focus-ring.show {
-      transform: translate(-50%, -50%) scale(1);
-      opacity: 1;
-    }
-
-    /* ── Panell de resultat ──────────────────────────────────── */
-    #result-panel {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .25s;
-      z-index: 20;
-    }
-
-    #result-panel.show {
-      opacity: 1;
-      pointer-events: all;
-    }
-
-    #result-panel.state-ok    { background: rgba(0,15,8,.92); }
-    #result-panel.state-dup   { background: rgba(10,5,0,.92); }
-    #result-panel.state-err   { background: rgba(15,0,5,.92); }
-
-    .result-icon {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-      font-size: 3rem;
-      animation: icon-pop .35s cubic-bezier(.34,1.56,.64,1) both;
-    }
-
-    @keyframes icon-pop {
-      from { transform: scale(0); opacity: 0; }
-      to   { transform: scale(1); opacity: 1; }
-    }
-
-    .state-ok  .result-icon { background: rgba(0,232,122,.12); border: 2px solid var(--green); box-shadow: 0 0 40px rgba(0,232,122,.25); }
-    .state-dup .result-icon { background: rgba(255,176,32,.10); border: 2px solid var(--amber); box-shadow: 0 0 40px rgba(255,176,32,.2); }
-    .state-err .result-icon { background: rgba(255,59,92,.12); border: 2px solid var(--red);   box-shadow: 0 0 40px rgba(255,59,92,.25); }
-
-    .result-status {
-      font-size: .72rem;
-      font-weight: 700;
-      letter-spacing: .18em;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-
-    .state-ok  .result-status { color: var(--green); }
-    .state-dup .result-status { color: var(--amber); }
-    .state-err .result-status { color: var(--red); }
-
-    .result-title {
-      font-size: 1.5rem;
-      font-weight: 900;
-      text-align: center;
-      margin-bottom: 20px;
-      line-height: 1.2;
-    }
-
-    /* Targeta de dades */
-    .result-card {
-      width: 100%;
-      max-width: 340px;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 16px;
-      padding: 16px 20px;
-      text-align: left;
-    }
-
-    .result-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 9px 0;
-      border-bottom: 1px solid rgba(255,255,255,.06);
-      gap: 12px;
-    }
-
-    .result-row:last-child { border-bottom: none; }
-
-    .result-key {
-      font-size: .72rem;
-      font-weight: 600;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      color: var(--muted);
-      flex-shrink: 0;
-    }
-
-    .result-val {
-      font-size: .88rem;
-      font-weight: 700;
-      color: var(--text);
-      text-align: right;
-      font-family: var(--mono);
-    }
-
-    .result-val.big-name {
-      font-family: var(--font);
-      font-size: 1rem;
-      font-weight: 800;
-    }
-
-    /* Badge tiquet */
-    .tiquet-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: .78rem;
-      font-weight: 700;
-      font-family: var(--mono);
-    }
-
-    .state-ok  .tiquet-badge { background: rgba(0,232,122,.15); color: var(--green); border: 1px solid rgba(0,232,122,.3); }
-    .state-dup .tiquet-badge { background: rgba(255,176,32,.15); color: var(--amber); border: 1px solid rgba(255,176,32,.3); }
-    .state-err .tiquet-badge { background: rgba(255,59,92,.15);  color: var(--red);   border: 1px solid rgba(255,59,92,.3); }
-
-    /* Hora de validació destacada */
-    .hora-val {
-      font-family: var(--mono);
-      font-size: .82rem;
-    }
-
-    .state-ok  .hora-val { color: var(--green); }
-    .state-dup .hora-val { color: var(--amber); }
-    .state-err .hora-val { color: var(--red); }
-
-    /* Barra de progrés per tornar a escanejar */
-    .progress-bar {
-      width: 100%;
-      max-width: 340px;
-      height: 3px;
-      background: rgba(255,255,255,.1);
-      border-radius: 2px;
-      margin-top: 20px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      width: 100%;
-      border-radius: 2px;
-      transform-origin: left;
-      transform: scaleX(0);
-    }
-
-    .state-ok  .progress-fill { background: var(--green); }
-    .state-dup .progress-fill { background: var(--amber); }
-    .state-err .progress-fill { background: var(--red); }
-
-    .progress-fill.run {
-      animation: progress-go var(--progress-dur, 3s) linear forwards;
-    }
-
-    @keyframes progress-go {
-      from { transform: scaleX(0); }
-      to   { transform: scaleX(1); }
-    }
-
-    .progress-label {
-      font-size: .65rem;
-      color: var(--muted);
-      margin-top: 8px;
-      letter-spacing: .06em;
-    }
-
-    /* ── Barra inferior d'estat ───────────────────────────────── */
-    #status-bar {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 20px;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      font-size: .72rem;
-      color: var(--muted);
-    }
-
-    #status-text { display: flex; align-items: center; gap: 6px; }
-
-    #status-icon {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--muted);
-      flex-shrink: 0;
-      transition: background .3s, box-shadow .3s;
-    }
-
-    #status-icon.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    #status-icon.error  { background: var(--red); box-shadow: 0 0 6px var(--red); }
-
-    #last-scan { font-family: var(--mono); }
-  </style>
+.info {
+  font-size: 18px;
+  line-height: 1.5;
+}
+</style>
 </head>
+
 <body>
-<div id="app">
 
-  <!-- Header -->
-  <div id="header">
-    <div class="logo">
-      <div class="logo-dot"></div>
-      <div>
-        <div class="logo-text">Espais Ocults</div>
-        <div class="logo-sub">Control d'accessos</div>
-      </div>
-    </div>
-    <div id="scan-count">Escanejos: <span id="count-num">0</span></div>
-  </div>
+<video id="video" autoplay playsinline></video>
 
-  <!-- Càmera -->
-  <div id="camera-wrap">
-    <video id="video" autoplay playsinline muted></video>
-
-    <!-- Overlay de scan -->
-    <div id="overlay">
-      <div class="mask-top"></div>
-      <div class="mask-bot"></div>
-      <div class="mask-left"></div>
-      <div class="mask-right"></div>
-      <div class="scan-frame">
-        <div class="c3"></div>
-        <div class="c4"></div>
-        <div class="scan-line"></div>
-        <div class="scan-label">Apunta al codi QR</div>
-      </div>
-      <div class="focus-ring" id="focus-ring"></div>
-    </div>
-
-    <!-- Panell resultat (per sobre de la càmera) -->
-    <div id="result-panel">
-      <div class="result-icon" id="result-icon"></div>
-      <div class="result-status" id="result-status"></div>
-      <div class="result-title" id="result-title"></div>
-      <div class="result-card" id="result-card"></div>
-      <div class="progress-bar">
-        <div class="progress-fill" id="progress-fill"></div>
-      </div>
-      <div class="progress-label">Tornant a escanejar...</div>
-    </div>
-  </div>
-
-  <!-- Barra inferior -->
-  <div id="status-bar">
-    <div id="status-text">
-      <div id="status-icon"></div>
-      <span id="status-msg">Iniciant càmera...</span>
-    </div>
-    <span id="last-scan">—</span>
-  </div>
-
+<div id="controls">
+  <button class="stop" onclick="stopScan()">⏸️ Pausar</button>
+  <button class="start" onclick="startScan()">▶️ Escanejar</button>
 </div>
 
+<div id="result">Escanejant...</div>
+
 <script>
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw/exec";
-  const RESET_MS = 3500;
+let scanning = true;
+let video = document.getElementById('video');
 
-  let scanning  = true;
-  let scanCount = 0;
+// 📷 Activar càmera
+navigator.mediaDevices.getUserMedia({
+  video: { facingMode: "environment" }
+})
+.then(stream => {
+  video.srcObject = stream;
 
-  // ── Càmera ────────────────────────────────────────────────────
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-    .then(stream => {
-      const video  = document.getElementById('video');
-      video.srcObject = stream;
-      setStatus('active', 'Càmera activa · Escanejant...');
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
 
-      const canvas = document.createElement("canvas");
-      const ctx    = canvas.getContext("2d");
+  setInterval(() => {
+    if (!scanning) return;
 
-      setInterval(() => {
-        if (!scanning || video.readyState < 2) return;
-        canvas.width  = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
-        const img  = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(img.data, canvas.width, canvas.height);
-        if (code) {
-          scanning = false;
-          // Flash de detecció
-          const ring = document.getElementById('focus-ring');
-          ring.classList.add('show');
-          setTimeout(() => ring.classList.remove('show'), 600);
-          processQR(code.data);
-        }
-      }, 400);
-    })
-    .catch(err => {
-      setStatus('error', 'Error càmera: ' + err.message);
-    });
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
 
-  // ── Processament QR ───────────────────────────────────────────
-  function processQR(qr) {
-    setStatus('active', 'Validant entrada...');
-    document.getElementById('last-scan').textContent = new Date().toLocaleTimeString('ca-ES');
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, canvas.width, canvas.height);
 
-    // Format QR: URL completa amb paràmetres, o bé "id_reserva|ticket"
-    let id_reserva, ticket;
-    if (qr.includes('id_reserva=')) {
-      const u = new URL(qr);
-      id_reserva = u.searchParams.get('id_reserva') || '';
-      ticket     = u.searchParams.get('ticket') || u.searchParams.get('tiquet') || '1';
-    } else {
-      const parts = qr.split('|');
-      id_reserva  = parts[0];
-      ticket      = parts[1] || '1';
+    if (code) {
+      scanning = false;
+      processQR(code.data);
     }
+  }, 400);
+})
+.catch(err => {
+  document.getElementById("result").innerText = "Error càmera: " + err;
+});
 
-    const callbackName = 'handleResponse_' + Date.now();
-    const url = GAS_URL
-      + '?accio=entrades'
-      + '&id_reserva=' + encodeURIComponent(id_reserva)
-      + '&ticket='     + encodeURIComponent(ticket)
-      + '&callback='   + callbackName;
+// ▶️ Reprendre escaneig
+function startScan() {
+  scanning = true;
+  const div = document.getElementById("result");
+  div.className = "";
+  div.innerText = "Escanejant...";
+}
 
-    window[callbackName] = function(data) {
-      delete window[callbackName];
-      showResult(data);
-    };
+// ⏸️ Pausar
+function stopScan() {
+  scanning = false;
+}
 
-    const s = document.createElement('script');
-    s.src   = url;
-    s.onerror = () => showResult({ estat: 'incorrecte', missatge: 'Error de connexió', nom: '—', edifici: '—', id_sessio: '—', hora_inici: '—', dia: '—', persones: '—', tiquet: ticket, hora_validacio: '—' });
-    document.body.appendChild(s);
+// 🔗 Enviar QR → GAS (JSONP)
+function processQR(qr) {
+  document.getElementById("result").innerText = "Validant...";
+
+  // Format QR: RS021FB3S|1
+  const parts = qr.split("|");
+  const id_reserva = parts[0];
+  const ticket = parts[1] || 1;
+
+  const url = "https://script.google.com/macros/s/AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw/exec"
+    + "?accio=entrades"
+    + "&id_reserva=" + encodeURIComponent(id_reserva)
+    + "&ticket=" + encodeURIComponent(ticket)
+    + "&callback=handleResponse";
+
+  console.log("Cridant:", url);
+
+  const script = document.createElement("script");
+  script.src = url;
+  document.body.appendChild(script);
+}
+
+// 📥 Resposta del GAS
+function handleResponse(data) {
+  const div = document.getElementById("result");
+
+  if (data.estat === "correcte") {
+    div.className = "ok";
+    navigator.vibrate(200);
+  } else {
+    div.className = "error";
+    navigator.vibrate([100, 50, 100]);
   }
 
-  // ── Mostrar resultat ──────────────────────────────────────────
-  function showResult(data) {
-    scanCount++;
-    document.getElementById('count-num').textContent = scanCount;
-
-    const panel  = document.getElementById('result-panel');
-    const icon   = document.getElementById('result-icon');
-    const status = document.getElementById('result-status');
-    const title  = document.getElementById('result-title');
-    const card   = document.getElementById('result-card');
-    const fill   = document.getElementById('progress-fill');
-
-    // Reset classes
-    panel.className = 'show';
-    fill.className  = 'progress-fill';
-
-    const estat = data.estat || 'incorrecte';
-
-    // Configuració per estat
-    const cfg = {
-      'correcte':   { cls: 'state-ok',  icon: '✓', label: 'ACCÉS PERMÈS',   title: 'Entrada Vàlida',        vibrate: [200] },
-      'ja_validat': { cls: 'state-dup', icon: '!', label: 'JA VALIDAT',      title: 'Tiquet ja utilitzat',   vibrate: [100,50,100] },
-      'incorrecte': { cls: 'state-err', icon: '✕', label: 'ACCÉS DENEGAT',   title: data.missatge || 'Entrada no vàlida', vibrate: [80,40,80,40,80] }
-    }[estat] || { cls: 'state-err', icon: '✕', label: 'ERROR', title: data.missatge || 'Error desconegut', vibrate: [80,40,80] };
-
-    panel.classList.add(cfg.cls);
-    icon.textContent    = cfg.icon;
-    status.textContent  = cfg.label;
-    title.textContent   = cfg.title;
-
-    // Vibrar
-    if (navigator.vibrate) navigator.vibrate(cfg.vibrate);
-
-    // Targeta de dades (només si hi ha dades útils)
-    if (data.nom && data.nom !== '—') {
-      const horaVal   = data.hora_validacio || '—';
-      const tiquetTxt = data.tiquet && data.persones
-        ? `${data.tiquet} / ${data.persones}`
-        : (data.tiquet || '—');
-
-      card.innerHTML = `
-        <div class="result-row">
-          <span class="result-key">Visitant</span>
-          <span class="result-val big-name">${esc(data.nom)}</span>
-        </div>
-        <div class="result-row">
-          <span class="result-key">Edifici</span>
-          <span class="result-val">${esc(data.edifici || '—')}</span>
-        </div>
-        <div class="result-row">
-          <span class="result-key">Sessió</span>
-          <span class="result-val">${esc(data.id_sessio || '—')}</span>
-        </div>
-        <div class="result-row">
-          <span class="result-key">Dia</span>
-          <span class="result-val">${esc(data.dia || '—')}</span>
-        </div>
-        <div class="result-row">
-          <span class="result-key">Hora</span>
-          <span class="result-val">${esc(data.hora_inici || '—')}</span>
-        </div>
-        <div class="result-row">
-          <span class="result-key">Tiquet</span>
-          <span class="tiquet-badge">${tiquetTxt}</span>
-        </div>
-        <div class="result-row">
-          <span class="result-key">Validació</span>
-          <span class="result-val hora-val">${esc(horaVal)}</span>
-        </div>
-      `;
-      card.style.display = 'block';
-    } else {
-      card.style.display = 'none';
-    }
-
-    // Barra de progrés i reset
-    void fill.offsetWidth; // reflow
-    fill.classList.add('run');
-    fill.style.setProperty('--progress-dur', (RESET_MS / 1000) + 's');
-
-    setStatus(estat === 'correcte' ? 'active' : 'error',
-      estat === 'correcte'   ? `✓ Validat — ${data.nom}` :
-      estat === 'ja_validat' ? `⚠ Ja validat — ${data.nom}` :
-                               `✕ Denegat — ${data.missatge || 'error'}`
-    );
-
-    setTimeout(() => {
-      panel.className  = '';
-      panel.classList.remove('show');
-      fill.className   = 'progress-fill';
-      setStatus('active', 'Càmera activa · Escanejant...');
-      scanning = true;
-    }, RESET_MS);
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────
-  function setStatus(type, msg) {
-    const ico = document.getElementById('status-icon');
-    ico.className = type === 'active' ? 'active' : type === 'error' ? 'error' : '';
-    document.getElementById('status-msg').textContent = msg;
-  }
-
-  function esc(s) {
-    return String(s)
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;');
-  }
+  div.innerHTML = `
+    <div class="big">${data.missatge}</div>
+    <div class="info">
+      👤 <b>${data.nom}</b><br>
+      🏛️ ${data.edifici}<br>
+      📅 ${data.dia} - ${data.hora_inici}<br>
+      👥 ${data.persones} persones<br>
+      🎟️ Ticket ${data.tiquet}<br>
+      ⏱️ ${data.hora_validacio}
+    </div>
+  `;
+}
 </script>
+
 </body>
 </html>
