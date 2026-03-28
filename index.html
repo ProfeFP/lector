@@ -3,26 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Lector QR - Control de Seguretat</title>
+  <title>Lector QR - Projecte GAS</title>
   <script src="https://unpkg.com/jsqr"></script>
   <style>
     body { margin: 0; font-family: sans-serif; background: #121212; color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-    #video { width: 100%; height: 40vh; object-fit: cover; background: #000; border-bottom: 2px solid #333; }
+    #video { width: 100%; height: 40vh; object-fit: cover; background: #000; }
     #login-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: #121212; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     input { padding: 15px; font-size: 20px; border-radius: 8px; border: 2px solid #444; margin-bottom: 15px; width: 80%; text-align: center; background: #222; color: white; }
     .btn { background: #28a745; color: white; border: none; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 10px; cursor: pointer; width: 80%; margin-top: 10px; }
     #result-container { flex: 1; padding: 15px; display: flex; flex-direction: column; justify-content: center; text-align: center; }
     .ok { background: #28a745; }
     .error { background: #dc3545; }
-    #debug-info { font-family: monospace; font-size: 10px; color: #777; word-break: break-all; margin-top: 10px; padding: 5px; background: #000; border: 1px solid #333; }
+    #debug-info { font-family: monospace; font-size: 10px; color: #777; word-break: break-all; margin-top: 10px; padding: 5px; background: #000; }
   </style>
 </head>
 <body>
 
-  <div id="login-screen" id="lScreen">
+  <div id="login-screen">
     <h2 style="color: #28a745;">🔐 IDENTIFICACIÓ</h2>
-    <input type="password" id="passInput" placeholder="Codi de Voluntari">
-    <button class="btn" onclick="login()">ENTRAR</button>
+    <p>Introdueix el teu codi de voluntari:</p>
+    <input type="text" id="passInput" placeholder="Ex: 987654">
+    <button class="btn" onclick="login()">ACTIVAR LECTOR</button>
   </div>
 
   <video id="video" autoplay playsinline></video>
@@ -34,11 +35,11 @@
   </div>
 
 <script>
-  // URL de l'Script (Assegura't que acaba en /exec)
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw/exec";
   let scanning = true;
   let userClau = localStorage.getItem('auth_clau');
 
+  // Si ja tenim una clau guardada (la que sigui), entrem
   if (userClau) {
     document.getElementById('login-screen').style.display = 'none';
     startCamera();
@@ -47,8 +48,11 @@
   function login() {
     const val = document.getElementById('passInput').value.trim();
     if (val.length > 0) {
+      // GUARDEM LA CLAU SENSE VALIDAR-LA AQUÍ
       localStorage.setItem('auth_clau', val);
       location.reload();
+    } else {
+      alert("Si us plau, introdueix un codi.");
     }
   }
 
@@ -82,47 +86,32 @@
     const status = document.getElementById("status-text");
     status.innerText = "⏳ VALIDANT...";
 
-    let id_reserva = "";
+    let id_reserva = qr;
     let tiquet = "1";
 
-    // Extracció de dades del QR (suporta URL o format ID|TIQUET)
-    try {
-      if (qr.includes("id_reserva=")) {
-        const urlParams = new URL(qr).searchParams;
-        id_reserva = urlParams.get("id_reserva");
-        tiquet = urlParams.get("ticket") || urlParams.get("tiquet") || "1";
-      } else if (qr.includes("|")) {
-        const parts = qr.split("|");
-        id_reserva = parts[0];
-        tiquet = parts[1] || "1";
-      } else {
-        id_reserva = qr;
-      }
-    } catch(e) { id_reserva = qr; }
+    if (qr.includes("id_reserva=")) {
+      const urlParams = new URL(qr).searchParams;
+      id_reserva = urlParams.get("id_reserva");
+      tiquet = urlParams.get("ticket") || urlParams.get("tiquet") || "1";
+    }
 
-    // Construcció de la URL amb el nou paràmetre "clau"
+    // CONSTRUCCIÓ DE LA URL AMB EL PARÀMETRE "clau"
     const finalUrl = `${SCRIPT_URL}`
       + `?callback=handleResponse`
       + `&accio=entrades`
       + `&id_reserva=${encodeURIComponent(id_reserva)}`
       + `&tiquet=${encodeURIComponent(tiquet)}`
-      + `&clau=${encodeURIComponent(userClau)}` // <--- Hem canviat "auth" per "clau"
+      + `&clau=${encodeURIComponent(userClau)}` // Enviem el que l'usuari hagi posat
       + `&origin=${encodeURIComponent(window.location.hostname)}`
-      + `&_=${new Date().getTime()}`; // Anti-cache
+      + `&_=${new Date().getTime()}`;
 
-    document.getElementById("debug-info").innerText = "Enviant: " + finalUrl;
-
-    // Injecció de script (JSONP) per evitar CORS
-    const oldScript = document.getElementById('jsonp-request');
-    if (oldScript) oldScript.remove();
+    document.getElementById("debug-info").innerText = "URL: " + finalUrl;
 
     const script = document.createElement("script");
-    script.id = 'jsonp-request';
     script.src = finalUrl;
     script.onerror = () => {
       document.getElementById("result-container").className = "error";
       status.innerText = "❌ ERROR DE CONNEXIÓ";
-      document.getElementById("data-display").innerHTML = '<button class="btn" onclick="reset()">REINTENTAR</button>';
     };
     document.body.appendChild(script);
   }
@@ -132,22 +121,23 @@
     const status = document.getElementById("status-text");
     const display = document.getElementById("data-display");
 
-    container.className = (data.estat === "correcte") ? "ok" : "error";
-    status.innerText = data.missatge || "RESULTAT REBUT";
-
+    // SI EL GAS DIU QUE LA CLAU ÉS DOLENTA
     if (data.estat === "error_auth") {
-       localStorage.removeItem('auth_clau');
-       status.innerText = "🔐 CLAU NO VÀLIDA";
-       setTimeout(() => location.reload(), 2000);
+       container.className = "error";
+       status.innerText = "🔐 CLAU NO AUTORITZADA";
+       display.innerHTML = `<p>${data.missatge}</p><button class="btn" onclick="localStorage.removeItem('auth_clau');location.reload();">TORNAR A PROVAR</button>`;
        return;
     }
+
+    container.className = (data.estat === "correcte") ? "ok" : "error";
+    status.innerText = data.missatge || "RESULTAT";
 
     display.innerHTML = `
       <div style="font-size:18px;">
         <b>${data.nom || '-'}</b><br>
         Tiquet: ${data.tiquet || '-'} | Persones: ${data.persones || '-'}
       </div>
-      <button class="btn" onclick="reset()">👉 SEGÜENT</button>
+      <button class="btn" onclick="reset()">SEGÜENT</button>
     `;
     
     if (data.estat === "correcte") navigator.vibrate(200);
