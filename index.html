@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Lector QR - Projecte GAS</title>
+  <title>Lector QR - Control de Seguretat</title>
   <script src="https://unpkg.com/jsqr"></script>
   <style>
     body { margin: 0; font-family: sans-serif; background: #121212; color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -14,14 +14,14 @@
     #result-container { flex: 1; padding: 15px; display: flex; flex-direction: column; justify-content: center; text-align: center; }
     .ok { background: #28a745; }
     .error { background: #dc3545; }
-    #debug-info { font-family: monospace; font-size: 10px; color: #777; word-break: break-all; margin-top: 10px; padding: 5px; background: #000; }
+    #debug-info { font-family: monospace; font-size: 10px; color: #777; word-break: break-all; margin-top: 10px; padding: 5px; background: #000; border: 1px solid #333; }
   </style>
 </head>
 <body>
 
-  <div id="login-screen">
+  <div id="login-screen" id="lScreen">
     <h2 style="color: #28a745;">🔐 IDENTIFICACIÓ</h2>
-    <input type="text" id="passInput" placeholder="Codi de Voluntari">
+    <input type="password" id="passInput" placeholder="Codi de Voluntari">
     <button class="btn" onclick="login()">ENTRAR</button>
   </div>
 
@@ -34,11 +34,12 @@
   </div>
 
 <script>
+  // URL de l'Script (Assegura't que acaba en /exec)
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw/exec";
   let scanning = true;
-  let userAuth = localStorage.getItem('auth_voluntari');
+  let userClau = localStorage.getItem('auth_clau');
 
-  if (userAuth) {
+  if (userClau) {
     document.getElementById('login-screen').style.display = 'none';
     startCamera();
   }
@@ -46,7 +47,7 @@
   function login() {
     const val = document.getElementById('passInput').value.trim();
     if (val.length > 0) {
-      localStorage.setItem('auth_voluntari', val);
+      localStorage.setItem('auth_clau', val);
       location.reload();
     }
   }
@@ -73,7 +74,8 @@
         requestAnimationFrame(scanLoop);
       };
       requestAnimationFrame(scanLoop);
-    });
+    })
+    .catch(err => alert("Error càmera: " + err));
   }
 
   function processQR(qr) {
@@ -81,40 +83,46 @@
     status.innerText = "⏳ VALIDANT...";
 
     let id_reserva = "";
-    let ticket = "1";
+    let tiquet = "1";
 
-    // Extracció intel·ligent de dades del QR
+    // Extracció de dades del QR (suporta URL o format ID|TIQUET)
     try {
       if (qr.includes("id_reserva=")) {
         const urlParams = new URL(qr).searchParams;
         id_reserva = urlParams.get("id_reserva");
-        ticket = urlParams.get("ticket") || urlParams.get("tiquet") || "1";
+        tiquet = urlParams.get("ticket") || urlParams.get("tiquet") || "1";
       } else if (qr.includes("|")) {
         const parts = qr.split("|");
         id_reserva = parts[0];
-        ticket = parts[1] || "1";
+        tiquet = parts[1] || "1";
       } else {
-        id_reserva = qr; // Cas per si el QR només conté el codi de reserva
+        id_reserva = qr;
       }
     } catch(e) { id_reserva = qr; }
 
-    // CONSTRUCCIÓ AMB TOTS ELS PARÀMETRES REQUERITS
+    // Construcció de la URL amb el nou paràmetre "clau"
     const finalUrl = `${SCRIPT_URL}`
       + `?callback=handleResponse`
-      + `&accio=entrades`   // <--- AFEGIT
+      + `&accio=entrades`
       + `&id_reserva=${encodeURIComponent(id_reserva)}`
-      + `&tiquet=${encodeURIComponent(ticket)}` // <--- AFEGIT
-      + `&auth=${encodeURIComponent(userAuth)}`
+      + `&tiquet=${encodeURIComponent(tiquet)}`
+      + `&clau=${encodeURIComponent(userClau)}` // <--- Hem canviat "auth" per "clau"
       + `&origin=${encodeURIComponent(window.location.hostname)}`
-      + `&cache=${new Date().getTime()}`;
+      + `&_=${new Date().getTime()}`; // Anti-cache
 
-    document.getElementById("debug-info").innerText = "URL: " + finalUrl;
+    document.getElementById("debug-info").innerText = "Enviant: " + finalUrl;
+
+    // Injecció de script (JSONP) per evitar CORS
+    const oldScript = document.getElementById('jsonp-request');
+    if (oldScript) oldScript.remove();
 
     const script = document.createElement("script");
+    script.id = 'jsonp-request';
     script.src = finalUrl;
     script.onerror = () => {
       document.getElementById("result-container").className = "error";
-      status.innerText = "❌ ERROR DE XARXA";
+      status.innerText = "❌ ERROR DE CONNEXIÓ";
+      document.getElementById("data-display").innerHTML = '<button class="btn" onclick="reset()">REINTENTAR</button>';
     };
     document.body.appendChild(script);
   }
@@ -128,8 +136,10 @@
     status.innerText = data.missatge || "RESULTAT REBUT";
 
     if (data.estat === "error_auth") {
-       localStorage.removeItem('auth_voluntari');
-       setTimeout(() => location.reload(), 2500);
+       localStorage.removeItem('auth_clau');
+       status.innerText = "🔐 CLAU NO VÀLIDA";
+       setTimeout(() => location.reload(), 2000);
+       return;
     }
 
     display.innerHTML = `
@@ -137,8 +147,11 @@
         <b>${data.nom || '-'}</b><br>
         Tiquet: ${data.tiquet || '-'} | Persones: ${data.persones || '-'}
       </div>
-      <button class="btn" onclick="reset()">SEGÜENT</button>
+      <button class="btn" onclick="reset()">👉 SEGÜENT</button>
     `;
+    
+    if (data.estat === "correcte") navigator.vibrate(200);
+    else navigator.vibrate([100, 50, 100]);
   };
 
   function reset() {
