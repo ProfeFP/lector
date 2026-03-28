@@ -3,157 +3,126 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Sistema de Control Protegit</title>
+  <title>Lector QR Segur</title>
   <script src="https://unpkg.com/jsqr"></script>
   <style>
-    :root { --bg: #121212; --ok: #27ae60; --err: #c0392b; --warn: #f39c12; }
-    body { margin: 0; font-family: sans-serif; background: var(--bg); color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-    
-    #video-container { position: relative; width: 100%; height: 40vh; background: #000; }
-    #video { width: 100%; height: 100%; object-fit: cover; }
-    
-    #result-container { flex: 1; padding: 15px; display: flex; flex-direction: column; overflow-y: auto; text-align: center; }
-    
-    /* Estil del Login */
-    #login-screen { position: absolute; top:0; left:0; width:100%; height:100%; background: #121212; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    input { padding: 12px; font-size: 18px; border-radius: 8px; border: none; margin-bottom: 10px; width: 80%; text-align: center; }
-    
-    .status-msg { font-size: 22px; font-weight: bold; margin-bottom: 10px; }
-    .data-card { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 10px; text-align: left; }
-    .data-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
-    
-    .btn { background: #fff; color: #000; border: none; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 10px; width: 100%; margin-top: auto; cursor: pointer; }
-    
-    .state-waiting { background: #1a1a1a; }
-    .state-ok { background: var(--ok); }
-    .state-error { background: var(--err); }
-    .state-warning { background: var(--warn); }
+    body { margin: 0; font-family: sans-serif; background: #121212; color: white; height: 100vh; display: flex; flex-direction: column; }
+    #video { width: 100%; height: 45vh; object-fit: cover; background: #000; }
+    #login-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: #121212; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    input { padding: 15px; font-size: 20px; border-radius: 8px; border: 2px solid #444; margin-bottom: 15px; width: 70%; text-align: center; background: #222; color: white; }
+    .btn { background: #28a745; color: white; border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 10px; cursor: pointer; }
+    #result { flex: 1; padding: 20px; text-align: center; font-size: 20px; }
+    .ok { background: #28a745; }
+    .error { background: #dc3545; }
+    #debug { font-family: monospace; font-size: 11px; color: #888; margin-top: 10px; word-break: break-all; padding: 10px; border-top: 1px solid #333; }
   </style>
 </head>
-<body class="state-waiting">
+<body>
 
-  <div id="login-screen" style="display: none;">
-    <h2>🔐 ACCÉS RESTRINGIT</h2>
-    <p>Introdueix el codi d'autorització:</p>
-    <input type="password" id="user-token" placeholder="Codi de seguretat">
-    <button class="btn" onclick="saveLogin()" style="width: 80%;">ACTIVAR LECTOR</button>
+  <div id="login-screen" id="lScreen">
+    <h2 style="color: #28a745;">🔑 ACCÉS REQUERIT</h2>
+    <p>Introdueix el codi (987654):</p>
+    <input type="password" id="passInput" placeholder="Codi Auth">
+    <button class="btn" onclick="login()">ENTRAR</button>
   </div>
 
-  <div id="video-container">
-    <video id="video" autoplay playsinline></video>
-  </div>
-
-  <div id="result-container">
-    <div id="status-text" class="status-msg">ESPERANT QR...</div>
-    
-    <div id="info-panel" style="display: none;">
-      <div class="data-card" id="card">
-        <div class="data-row"><span>Usuari:</span> <b id="res-nom"></b></div>
-        <div class="data-row"><span>Sessió:</span> <span id="res-sessio"></span></div>
-        <div class="data-row"><span>Persones:</span> <b id="res-persones"></b></div>
-      </div>
-      <button class="btn" onclick="resetScanner()">SEGÜENT</button>
-    </div>
-  </div>
+  <video id="video" autoplay playsinline></video>
+  <div id="result">📷 Esperant QR...</div>
+  <div id="debug"></div>
 
 <script>
-  const ORIGIN_AUTORITZAT = "profe-fp.github.io"; // ⚠️ CANVIA AIXÒ pel teu domini real
-  let scanning = false;
+  const SCRIPT_ID = "AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw";
+  let scanning = true;
   let token = localStorage.getItem('auth_token');
 
-  // Comprovar Login inicial
-  if (!token) {
-    document.getElementById('login-screen').style.display = 'flex';
-  } else {
+  // Si tenim token, amaguem login i comencem
+  if (token) {
+    document.getElementById('login-screen').style.display = 'none';
     startCamera();
   }
 
-  function saveLogin() {
-    const val = document.getElementById('user-token').value;
-    if (val.length > 3) {
+  function login() {
+    const val = document.getElementById('passInput').value;
+    if (val === "987654") {
       localStorage.setItem('auth_token', val);
       location.reload();
+    } else {
+      alert("Codi incorrecte");
     }
   }
 
   function startCamera() {
-    scanning = true;
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(stream => { 
-        document.getElementById('video').srcObject = stream;
-        requestAnimationFrame(tick);
-      });
-  }
-
-  function tick() {
-    const video = document.getElementById('video');
-    if (scanning && video.readyState === video.HAVE_ENOUGH_DATA) {
+    .then(stream => {
+      const video = document.getElementById('video');
+      video.srcObject = stream;
       const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
       const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
       
-      if (code) {
-        scanning = false;
-        processQR(code.data);
-      }
-    }
-    requestAnimationFrame(tick);
+      setInterval(() => {
+        if (!scanning) return;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+        if (code) { scanning = false; processQR(code.data); }
+      }, 500);
+    });
   }
 
-  function processQR(qrData) {
-    // 1. Validació de seguretat d'ORIGEN
-    if (!window.location.hostname.includes(ORIGIN_AUTORITZAT)) {
-        alert("ALERTA: Aquesta aplicació només és vàlida des del domini autoritzat.");
-        return;
+  function processQR(qr) {
+    const resDiv = document.getElementById("result");
+    const debugDiv = document.getElementById("debug");
+    resDiv.innerHTML = "⏳ Validant...";
+
+    // Extreure ID del QR (assumint format URL o separador | )
+    let id_reserva = qr;
+    if (qr.includes("id_reserva=")) {
+       id_reserva = new URL(qr).searchParams.get("id_reserva");
+    } else if (qr.includes("|")) {
+       id_reserva = qr.split("|")[0];
     }
 
-    try {
-      const url = new URL(qrData);
-      const id = url.searchParams.get("id_reserva");
-      const tiquet = url.searchParams.get("ticket") || "1";
+    const url = `https://script.google.com/macros/s/${SCRIPT_ID}/exec`
+      + `?callback=handleResponse`
+      + `&id_reserva=${encodeURIComponent(id_reserva)}`
+      + `&auth=${encodeURIComponent(token)}`
+      + `&origin=${encodeURIComponent(window.location.hostname)}`;
 
-      // Enviar el Token guardat i l'origen a Google Apps Script
-      const scriptID = "AKfycbxNlN_OM3oqI_I1SGIMxi6MmbtJV2iek49bOpuEX8GQMlly5rWTvRF_dKeKc2DJA9RHJw";
-      const finalUrl = `https://script.google.com/macros/s/${scriptID}/exec`
-                     + `?callback=handleResponse`
-                     + `&id_reserva=${id}`
-                     + `&ticket=${tiquet}`
-                     + `&auth=${encodeURIComponent(token)}` // Envia el codi d'usuari
-                     + `&origin=${encodeURIComponent(window.location.hostname)}`;
+    debugDiv.innerText = "URL Enviada: " + url;
 
-      const s = document.createElement("script");
-      s.src = finalUrl;
-      document.body.appendChild(s);
-    } catch (e) {
-      alert("QR No vàlid");
-      resetScanner();
-    }
+    const script = document.createElement("script");
+    script.src = url;
+    script.onerror = () => {
+      resDiv.className = "error";
+      resDiv.innerText = "❌ ERROR CRÍTIC DE CONNEXIÓ";
+    };
+    document.body.appendChild(script);
   }
 
-  window.handleResponse = function(d) {
-    document.getElementById('info-panel').style.display = 'block';
-    document.getElementById('status-text').innerText = d.missatge;
+  window.handleResponse = function(data) {
+    const resDiv = document.getElementById("result");
+    resDiv.className = (data.estat === "correcte") ? "ok" : "error";
     
-    // Si el servidor detecta que el token és fals
-    if (d.estat === "error_auth") {
-        localStorage.removeItem('auth_token');
-        location.reload();
-        return;
+    if (data.estat === "error_auth") {
+       localStorage.removeItem('auth_token');
+       resDiv.innerHTML = "⚠ ERROR D'AUTORITZACIÓ. Reiniciant...";
+       setTimeout(() => location.reload(), 2000);
+       return;
     }
 
-    document.body.className = d.estat === "correcte" ? "state-ok" : (d.estat === "ja_validat" ? "state-warning" : "state-error");
-    document.getElementById('res-nom').innerText = d.nom || '-';
-    document.getElementById('res-sessio').innerText = d.hora_inici || '-';
-    document.getElementById('res-persones').innerText = d.persones || '-';
+    resDiv.innerHTML = `
+      <div style="font-size:24px; font-weight:bold;">${data.missatge}</div>
+      <p>${data.nom || ''} (${data.persones || '0'} pers.)</p>
+      <button class="btn" onclick="reset()">SEGÜENT</button>
+    `;
   };
 
-  function resetScanner() {
+  function reset() {
     scanning = true;
-    document.body.className = "state-waiting";
-    document.getElementById('info-panel').style.display = 'none';
-    document.getElementById('status-text').innerText = "ESPERANT QR...";
+    const resDiv = document.getElementById("result");
+    resDiv.className = "";
+    resDiv.innerHTML = "📷 Esperant QR...";
   }
 </script>
 </body>
